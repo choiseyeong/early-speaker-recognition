@@ -30,7 +30,7 @@ CKPT_DIR      = Path(__file__).resolve().parent.parent / 'outputs' / 'checkpoint
 RESULTS_DIR   = Path(__file__).resolve().parent.parent / 'outputs' / 'results'
 
 DURATIONS   = ['0.5', '1.0', '1.5', 'full']
-FIXED_LEN   = 150
+FIXED_LEN   = 300
 BATCH_SIZE  = 64
 NUM_WORKERS = 0
 

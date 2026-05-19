@@ -21,7 +21,7 @@ RESULTS_PATH = RESULTS_DIR / 'evaluation_results.json'
 OUT_PATH     = RESULTS_DIR / 'accuracy_by_duration.png'
 
 DURATION_LABELS = {'0.5': '0.5s', '1.0': '1.0s', '1.5': '1.5s', 'full': 'full'}
-DURATION_X      = {'0.5': 0.5, '1.0': 1.0, '1.5': 1.5, 'full': 2.0}  # x축 위치
+DURATION_X      = {'0.5': 0.5, '1.0': 1.0, '1.5': 1.5, 'full': 3.0}  # x축 위치
 
 MODEL_STYLE = {
     'xvector'   : {'color': '#4C72B0', 'marker': 'o', 'label': 'X-Vector'},

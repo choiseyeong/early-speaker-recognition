@@ -14,8 +14,8 @@
 
 
 ```
-Mel Spectrogram (80 × 150) → 모델 → 임베딩 벡터 (128차원)
-     12,000개 숫자                       128개 숫자
+Mel Spectrogram (80 × 300) → 모델 → 임베딩 벡터 (128차원)
+     24,000개 숫자                       128개 숫자
 
 * 128차원은 위치를 지정하는 데 128개의 독립적인 좌표나 데이터가 필요한 공간
 ```
@@ -105,28 +105,28 @@ class RandomDurationDataset(Dataset):
         file_name = self.files[idx].name           # ex) '0047_0000.npy'
         mel = np.load(self.base_dir / duration / file_name)
 
-        mel = self._fix_length(mel, FIXED_LEN)     # 150 프레임으로 정규화
+        mel = self._fix_length(mel, FIXED_LEN)     # 300 프레임으로 정규화
 
         if self.normalize:
             mel = (mel - mel.mean()) / (mel.std() + 1e-8)
 
-        mel_tensor = torch.from_numpy(mel).unsqueeze(0).float()  # (1, 80, 150)
+        mel_tensor = torch.from_numpy(mel).unsqueeze(0).float()  # (1, 80, 300)
         label      = torch.tensor(self.labels[idx], dtype=torch.long)
         return mel_tensor, label
 ```
 
-### `_fix_length(mel, length=150)`
+### `_fix_length(mel, length=300)`
 
-모든 duration의 Mel을 150 프레임으로 통일. (신경망에 넣으려면 모든 입력의 크기가 같아야 하기 때문)
+모든 duration의 Mel을 300 프레임으로 통일. (신경망에 넣으려면 모든 입력의 크기가 같아야 하기 때문)
 
 ```
-0.5초 (50프레임):  [▓▓▓▓▓▓▓▓▓▓░░░░░░░░░░░░░░░░░░░░]  → 뒤에 0 패딩
-1.0초 (100프레임): [▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░░░░░░░░░]  → 뒤에 0 패딩
-1.5초 (150프레임): [▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓]  → 그대로
-full (200프레임+): [▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓]  → 앞 150프레임만 사용
+0.5초 (50프레임):        [▓▓▓▓▓░░░░░░░░░░░░░░░░░░░░░░░░░]  → 뒤에 0 패딩
+1.0초 (100프레임):       [▓▓▓▓▓▓▓▓▓▓░░░░░░░░░░░░░░░░░░░░]  → 뒤에 0 패딩
+1.5초 (150프레임):       [▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░░░░░░░░░░░░░░]  → 뒤에 0 패딩
+full (가변, 평균 251프레임): [▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░░░░]  → 300 미만이면 0 패딩, 이상이면 앞 300프레임
 ```
 
-150인 이유: 1.5초 × (1프레임/10ms) = 150 프레임. "1.5초 이상이면 온전히 포함"되는 기준값.
+300인 이유: 3.0초 × (1프레임/10ms) = 300 프레임. full 발화의 평균(2.51초 ≈ 251프레임)이 온전히 포함되어 1.5초 데이터와 실질적인 차이가 생기는 기준값.
 
 ### 정규화 (Normalize)
 
@@ -143,7 +143,7 @@ mel = (mel - mel.mean()) / (mel.std() + 1e-8)
 ### `unsqueeze(0)`: 채널 차원 추가
 
 ```
-(80, 150) → (1, 80, 150)
+(80, 300) → (1, 80, 300)
 ```
 
 CNN은 `(채널, 높이, 너비)` 형식을 기대한다. Mel Spectrogram은 채널이 1개(흑백 이미지와 동일)이므로 채널 차원을 추가한다. 채널이 추가되어도 실제 데이터는 그대로이고 형태만 바뀐다.
@@ -159,11 +159,11 @@ CNN은 `(채널, 높이, 너비)` 형식을 기대한다. Mel Spectrogram은 채
 ### 전체 구조
 
 ```
-입력: (batch, 1, 80, 150)
+입력: (batch, 1, 80, 300)
   ↓ squeeze(1)
-(batch, 80, 150)          ← 2D → 1D: 주파수 축을 채널로 취급
+(batch, 80, 300)          ← 2D → 1D: 주파수 축을 채널로 취급
   ↓ TDNN 레이어 5개
-(batch, 256, 150)         ← 프레임 수(시간 축)는 유지
+(batch, 256, 300)         ← 프레임 수(시간 축)는 유지
   ↓ Statistics Pooling
 (batch, 512)              ← [평균; 표준편차] 이어붙임 → 차원 2배
   ↓ FC 레이어 2개
@@ -220,13 +220,13 @@ X-Vector의 세 가지 한계를 개선한 모델이다.
 ### 전체 구조
 
 ```
-입력: (batch, 1, 80, 150)
+입력: (batch, 1, 80, 300)
   ↓ squeeze(1) + Conv1d(80→128, kernel=5)
-(batch, 128, 150)
+(batch, 128, 300)
   ↓ SERes2Block × 3 (dilation: 2, 3, 4)
-  x1:(batch,128,150), x2:(batch,128,150), x3:(batch,128,150)
+  x1:(batch,128,300), x2:(batch,128,300), x3:(batch,128,300)
   ↓ Concat [x1, x2, x3]
-(batch, 384, 150)         ← 3개 레이어 출력 합산 (멀티스케일)
+(batch, 384, 300)         ← 3개 레이어 출력 합산 (멀티스케일)
   ↓ Attentive Statistics Pooling
 (batch, 768)              ← [어텐션 가중 평균; 어텐션 가중 표준편차]
   ↓ FC
@@ -297,21 +297,21 @@ ResNet을 1D 시퀀스 대신 **2D 이미지**처럼 처리하는 접근법이�
 ### 전체 구조
 
 ```
-입력: (batch, 1, 80, 150)   ← (배치, 채널=1, 주파수=80, 시간=150)
+입력: (batch, 1, 80, 300)   ← (배치, 채널=1, 주파수=80, 시간=300)
   ↓ Stem: Conv2d(1→16, 3×3)
-(batch, 16, 80, 150)
+(batch, 16, 80, 300)
   ↓ Layer1: BasicBlock×3, stride=1
-(batch, 16, 80, 150)        ← 크기 유지
+(batch, 16, 80, 300)        ← 크기 유지
   ↓ Layer2: BasicBlock×4, stride=(2,1)
-(batch, 32, 40, 150)        ← 주파수만 절반으로 (80→40)
+(batch, 32, 40, 300)        ← 주파수만 절반으로 (80→40)
   ↓ Layer3: BasicBlock×6, stride=(2,1)
-(batch, 64, 20, 150)        ← 주파수만 절반으로 (40→20)
+(batch, 64, 20, 300)        ← 주파수만 절반으로 (40→20)
   ↓ Layer4: BasicBlock×3, stride=(2,1)
-(batch, 128, 10, 150)       ← 주파수만 절반으로 (20→10)
+(batch, 128, 10, 300)       ← 주파수만 절반으로 (20→10)
   ↓ AdaptiveAvgPool2d((1, None))
-(batch, 128, 1, 150)        ← 주파수 축 완전 압축
+(batch, 128, 1, 300)        ← 주파수 축 완전 압축
   ↓ squeeze(2)
-(batch, 128, 150)           ← 이제 1D 시퀀스처럼
+(batch, 128, 300)           ← 이제 1D 시퀀스처럼
   ↓ Statistics Pooling [mean; std]
 (batch, 256)
   ↓ FC
@@ -357,7 +357,7 @@ def forward(self, x):
 EPOCHS     = 30      # 전체 데이터를 30번 반복 학습
 BATCH_SIZE = 32      # 한 번에 32개 샘플을 처리
 LR         = 1e-3    # 학습률 (초기값 0.001)
-FIXED_LEN  = 150     # Mel 시간 프레임 고정 길이
+FIXED_LEN  = 300     # Mel 시간 프레임 고정 길이
 ```
 
 ### Loss: CrossEntropyLoss

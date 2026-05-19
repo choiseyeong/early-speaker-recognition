@@ -1,7 +1,7 @@
 """
 train.py
 
-방법 C: 배치마다 랜덤 duration으로 학습
+배치마다 랜덤 duration으로 학습
   → 모델이 0.5s / 1.0s / 1.5s / full 모두 경험
   → "정보량 자체의 한계"를 순수하게 측정 가능
 
@@ -38,9 +38,9 @@ DURATIONS   = ['0.5', '1.0', '1.5', 'full']
 EPOCHS      = 30
 BATCH_SIZE  = 32
 LR          = 1e-3
-FIXED_LEN   = 150   # T축 고정 프레임 수 (150 × 10ms = 1.5초)
+FIXED_LEN   = 300   # T축 고정 프레임 수 (300 × 10ms = 3.0초)
               # → 모든 duration을 같은 길이로 맞춤
-              #   0.5s(50프레임)는 패딩, full은 앞에서 자름
+              #   0.5s(50)~1.5s(150프레임)는 뒤에 0 패딩, full은 300+ 이면 앞에서 자름
 NUM_WORKERS = 0     # Windows에서는 0 권장
 
 
@@ -271,7 +271,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '--model',
         type=str,
-        default='xvector',
+        default='resnet34se',
         choices=['xvector', 'ecapa_tdnn', 'resnet34se'],
         help='학습할 모델 선택'
     )
